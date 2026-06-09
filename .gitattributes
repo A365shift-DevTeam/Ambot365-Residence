@@ -1,0 +1,12 @@
+# Force LF line endings for shell scripts and binaries (prevents "Permission denied" on Linux CI like Vercel)
+* text=auto
+*.sh text eol=lf
+*.js text eol=lf
+node_modules/.bin/* text eol=lf
+
+# Explicitly mark important executables
+node_modules/.bin/vite text eol=lf
+
+# Keep lockfiles and configs as-is
+package-lock.json -text
+*.lock -text
