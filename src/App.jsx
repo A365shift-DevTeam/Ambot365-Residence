@@ -138,8 +138,7 @@ const Ambot365 = () => {
 
       {/* Hero with scrolling 3D frame animation */}
       <HeroSection onProgressChange={setHeroProgress}>
-        {/* Intro after the full-screen hero */}
-        <section style={{ padding: '5.5rem 3rem 5rem', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+        <section style={{ padding: '1.5rem 1.5rem 2rem', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
           <div style={{ maxWidth: 820, margin: '0 auto', textAlign: 'center' }}>
             <div style={{ fontFamily: 'Cinzel, serif', fontSize: '0.95rem', letterSpacing: '0.26em', color: '#6B8E78', marginBottom: '0.9rem' }}>
               A PRIVATE COLLECTION
@@ -149,7 +148,7 @@ const Ambot365 = () => {
             </p>
           </div>
         </section>
-      </HeroSection>
+
 
       {/* Curated Living Spaces - redesigned to match reference */}
       <section id="spaces" style={{ padding: '4rem 2.5rem 7rem', background: '#050505' }}>
@@ -392,6 +391,8 @@ const Ambot365 = () => {
       <footer style={{ padding: '3.25rem 3.5rem', textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: '0.75rem', letterSpacing: '0.12em', color: 'rgba(255,255,255,0.4)' }}>
         © AMBOT365 — {new Date().getFullYear()} &nbsp;•&nbsp; CURATED LIVING
       </footer>
+
+      </HeroSection>
 
       {/* Gallery Image Modal */}
       {selectedFrame && (

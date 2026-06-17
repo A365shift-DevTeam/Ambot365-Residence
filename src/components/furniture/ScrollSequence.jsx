@@ -20,6 +20,19 @@ export default function ScrollSequence({ onProgressChange, children }) {
   const [loadProgress, setLoadProgress] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
   const [imgAspect, setImgAspect] = useState(1.6); // Default fallback 16:10
+  const [mobileScrollTrack, setMobileScrollTrack] = useState(0);
+
+  useEffect(() => {
+    if (isMobile && stickyWrapperRef.current) {
+      const observer = new ResizeObserver((entries) => {
+        for (let entry of entries) {
+          setMobileScrollTrack(entry.contentRect.height);
+        }
+      });
+      observer.observe(stickyWrapperRef.current);
+      return () => observer.disconnect();
+    }
+  }, [isMobile]);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -152,15 +165,15 @@ export default function ScrollSequence({ onProgressChange, children }) {
       let progress = 0;
 
       if (isMobile) {
-        // Mobile Animation Logic: animate naturally as it scrolls out of view
-        const scrollDistance = rect.height;
+        // Mobile Animation Logic: animate exactly over the 300vh scroll track
+        const scrollDistance = viewportHeight * 3; // 300vh
         const scrolledPast = -rect.top;
         if (scrolledPast < 0) {
           progress = 0;
-        } else if (scrollDistance > 0) {
-          progress = Math.min(1, Math.max(0, scrolledPast / scrollDistance));
-        } else {
+        } else if (scrolledPast > scrollDistance) {
           progress = 1;
+        } else {
+          progress = scrolledPast / scrollDistance;
         }
       } else {
         // Desktop Animation Logic: animate over the height of the container minus the sticky element
@@ -232,16 +245,16 @@ export default function ScrollSequence({ onProgressChange, children }) {
         ref={containerRef} 
         className="scroll-sequence" 
         style={{ 
-          height: isMobile ? 'auto' : '240vh', 
+          height: isMobile ? `calc(300vh + ${mobileScrollTrack}px)` : '240vh', 
           position: 'relative' 
         }}
       >
         <div
           ref={stickyWrapperRef}
           style={{
-            position: isMobile ? 'relative' : 'sticky',
+            position: 'sticky',
             top: 0,
-            height: isMobile ? 'auto' : '100dvh',
+            height: isMobile ? 'max-content' : '100dvh',
             background: '#050505',
             overflow: isMobile ? 'visible' : 'hidden',
             display: 'flex',
