@@ -3,38 +3,30 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 const TOTAL_FRAMES = 240;
 const FRAME_BASE = '/furniture/frames/ezgif-frame-';
 
-// Zoom factor for full-screen immersive hero (higher = more zoomed into the furniture)
-const HERO_ZOOM = 1.42;
-
 function getFrameSrc(index) {
   const num = String(index + 1).padStart(3, '0');
   return `${FRAME_BASE}${num}.webp`;
 }
 
-// Draws the frame zoomed + centered to fill the entire canvas (full-screen hero style)
-function drawZoomedImage(ctx, img, canvasW, canvasH, zoom) {
-  const srcW = img.naturalWidth / zoom;
-  const srcH = img.naturalHeight / zoom;
-  const srcX = (img.naturalWidth - srcW) / 2;
-  const srcY = (img.naturalHeight - srcH) / 2;
-
-  ctx.clearRect(0, 0, canvasW, canvasH);
-  ctx.drawImage(
-    img,
-    srcX, srcY, srcW, srcH,   // source rect (zoomed in)
-    0, 0, canvasW, canvasH    // destination = full canvas
-  );
-}
-
-export default function ScrollSequence({ onProgressChange }) {
+export default function ScrollSequence({ onProgressChange, children }) {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
+  const stickyWrapperRef = useRef(null);
   const imagesRef = useRef([]);
   const loadedCountRef = useRef(0);
   const currentFrameRef = useRef(0);
 
   const [ready, setReady] = useState(false);
   const [loadProgress, setLoadProgress] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
+  const [imgAspect, setImgAspect] = useState(1.6); // Default fallback 16:10
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Preload all frames
   useEffect(() => {
@@ -68,7 +60,7 @@ export default function ScrollSequence({ onProgressChange }) {
 
     imagesRef.current = imgs;
 
-    // Draw first frame as soon as it is ready (inline to avoid closure issues)
+    // Draw first frame as soon as it is ready
     const first = imgs[0];
     if (first) {
       const tryDrawFirst = () => {
@@ -77,13 +69,18 @@ export default function ScrollSequence({ onProgressChange }) {
           setTimeout(tryDrawFirst, 60);
           return;
         }
+        
+        // Calculate aspect ratio dynamically
+        setImgAspect(first.naturalWidth / first.naturalHeight);
+        
         // Use native image resolution internally (high quality)
         canvas.width = first.naturalWidth;
         canvas.height = first.naturalHeight;
 
         const ctx = canvas.getContext('2d', { alpha: true });
         if (ctx) {
-          drawZoomedImage(ctx, first, canvas.width, canvas.height, HERO_ZOOM);
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(first, 0, 0);
         }
       };
       tryDrawFirst();
@@ -129,8 +126,9 @@ export default function ScrollSequence({ onProgressChange }) {
       canvas.height = img.naturalHeight;
     }
 
-    // Full-screen zoomed draw (center-cropped + scaled to fill hero)
-    drawZoomedImage(ctx, img, canvas.width, canvas.height, HERO_ZOOM);
+    // Direct draw, full-frame layout handled by object-fit CSS now
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0);
 
     currentFrameRef.current = idx;
 
@@ -150,22 +148,32 @@ export default function ScrollSequence({ onProgressChange }) {
     const updateFrame = () => {
       const rect = scrollContainer.getBoundingClientRect();
       const viewportHeight = window.innerHeight;
-      const scrollHeight = scrollContainer.offsetHeight;
-
-      // Progress only advances while the sticky area is in view
-      const startOffset = viewportHeight; // when top of container hits top of viewport
-      const endOffset = scrollHeight;     // when bottom of container is at top of viewport
-
+      
       let progress = 0;
-      if (rect.top <= 0 && rect.bottom >= viewportHeight) {
-        // Inside the active scrub zone
+
+      if (isMobile) {
+        // Mobile Animation Logic: animate naturally as it scrolls out of view
+        const scrollDistance = rect.height;
         const scrolledPast = -rect.top;
-        const totalScrubDistance = scrollHeight - viewportHeight;
-        progress = totalScrubDistance > 0 ? Math.min(1, Math.max(0, scrolledPast / totalScrubDistance)) : 0;
-      } else if (rect.top > 0) {
-        progress = 0;
+        if (scrolledPast < 0) {
+          progress = 0;
+        } else if (scrollDistance > 0) {
+          progress = Math.min(1, Math.max(0, scrolledPast / scrollDistance));
+        } else {
+          progress = 1;
+        }
       } else {
-        progress = 1;
+        // Desktop Animation Logic: animate over the height of the container minus the sticky element
+        const stickyWrapperHeight = stickyWrapperRef.current ? stickyWrapperRef.current.clientHeight : viewportHeight;
+        const scrollDistance = rect.height - stickyWrapperHeight;
+        const scrolledPast = -rect.top;
+        if (scrolledPast < 0) {
+          progress = 0;
+        } else if (scrollDistance > 0) {
+          progress = Math.min(1, Math.max(0, scrolledPast / scrollDistance));
+        } else {
+          progress = 1;
+        }
       }
 
       const targetFrame = progress * (TOTAL_FRAMES - 1);
@@ -197,7 +205,7 @@ export default function ScrollSequence({ onProgressChange }) {
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('resize', onScroll);
     };
-  }, [drawFrame]);
+  }, [drawFrame, isMobile]);
 
   // Also allow clicking / dragging on canvas to manually scrub (nice for demo)
   const handlePointerScrub = (e) => {
@@ -206,9 +214,6 @@ export default function ScrollSequence({ onProgressChange }) {
 
     const rect = scrollContainer.getBoundingClientRect();
     const viewportH = window.innerHeight;
-    const totalScrub = scrollContainer.offsetHeight - viewportH;
-
-    // Map vertical pointer position inside the sticky viewport to progress
     const y = e.clientY - rect.top;
     const progress = Math.max(0, Math.min(1, y / viewportH));
 
@@ -216,87 +221,110 @@ export default function ScrollSequence({ onProgressChange }) {
     drawFrame(frame);
 
     // Optional: also scroll the page to match (sync)
+    const totalScrub = scrollContainer.offsetHeight - viewportH;
     const targetScroll = scrollContainer.offsetTop + (progress * totalScrub);
     window.scrollTo({ top: targetScroll, behavior: 'auto' });
   };
 
   return (
-    <div ref={containerRef} className="scroll-sequence" style={{ height: '260vh', position: 'relative' }}>
-      {/* Sticky viewport layer - full screen hero like the reference */}
-      <div
-        style={{
-          position: 'sticky',
-          top: 0,
-          height: '100vh',
-          background: '#050505',
-          overflow: 'hidden',
+    <>
+      <div 
+        ref={containerRef} 
+        className="scroll-sequence" 
+        style={{ 
+          height: isMobile ? 'auto' : '240vh', 
+          position: 'relative' 
         }}
       >
-        {/* Inner relative container - all hero layers live here (full bleed) */}
-        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-          {/* Canvas - the 3D furniture frames, full-bleed + zoomed to fill the entire hero */}
-          <canvas
-            ref={canvasRef}
-            onPointerDown={handlePointerScrub}
-            onPointerMove={(e) => {
-              if (e.buttons > 0) handlePointerScrub(e);
-            }}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              width: '100%',
-              height: '100%',
-              display: 'block',
-              background: '#0a0a0c',
-              cursor: 'grab',
-              touchAction: 'none',
-              zIndex: 1,
-            }}
-          />
+        <div
+          ref={stickyWrapperRef}
+          style={{
+            position: isMobile ? 'relative' : 'sticky',
+            top: 0,
+            height: isMobile ? 'auto' : '100dvh',
+            background: '#050505',
+            overflow: isMobile ? 'visible' : 'hidden',
+            display: 'flex',
+            flexDirection: 'column'
+          }}
+        >
+          {/* Canvas Wrapper */}
+          <div style={{ 
+            position: isMobile ? 'relative' : 'absolute', 
+            width: '100%', 
+            height: isMobile ? `calc(100vw / ${imgAspect})` : '100%', 
+            inset: isMobile ? 'auto' : 0 
+          }}>
+            {/* Canvas - the 3D furniture frames */}
+            <canvas
+              ref={canvasRef}
+              onPointerDown={handlePointerScrub}
+              onPointerMove={(e) => {
+                if (e.buttons > 0) handlePointerScrub(e);
+              }}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                width: '100%',
+                height: '100%',
+                display: 'block',
+                background: '#0a0a0c',
+                cursor: 'grab',
+                touchAction: 'none',
+                zIndex: 1,
+                objectFit: 'cover' // ensures full bleed on desktop, perfectly contained on mobile matching aspect
+              }}
+            />
 
-          {/* Very subtle full-bleed backdrop for depth */}
-          <div style={{
-            position: 'absolute',
-            inset: 0,
-            background: 'radial-gradient(ellipse at 50% 45%, rgba(255,255,255,0.012) 0%, transparent 60%)',
-            pointerEvents: 'none',
-            zIndex: 2,
-          }} />
-
-          {/* Subtle vignette for premium photo-like treatment (text readability) */}
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'radial-gradient(circle at 50% 38%, transparent 48%, rgba(5,5,5,0.28) 76%)',
-              pointerEvents: 'none',
-              zIndex: 3,
-            }}
-          />
-
-          {/* Loading indicator (only while preloading) */}
-          {!ready && loadProgress < 100 && (
+            {/* Very subtle full-bleed backdrop for depth */}
             <div style={{
               position: 'absolute',
-              bottom: '9%',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              fontSize: '10px',
-              letterSpacing: '3.5px',
-              color: 'rgba(255,255,255,0.5)',
-              background: 'rgba(0,0,0,0.45)',
-              padding: '5px 16px',
-              borderRadius: 999,
-              backdropFilter: 'blur(8px)',
-              zIndex: 11,
-            }}>
-              LOADING FRAMES • {loadProgress}%
-            </div>
-          )}
+              inset: 0,
+              background: 'radial-gradient(ellipse at 50% 45%, rgba(255,255,255,0.012) 0%, transparent 60%)',
+              pointerEvents: 'none',
+              zIndex: 2,
+            }} />
 
+            {/* Subtle vignette for premium photo-like treatment (text readability) */}
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: 'radial-gradient(circle at 50% 38%, transparent 48%, rgba(5,5,5,0.28) 76%)',
+                pointerEvents: 'none',
+                zIndex: 3,
+              }}
+            />
+
+            {/* Loading indicator (only while preloading) */}
+            {!ready && loadProgress < 100 && (
+              <div style={{
+                position: 'absolute',
+                bottom: '9%',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                fontSize: '10px',
+                letterSpacing: '3.5px',
+                color: 'rgba(255,255,255,0.5)',
+                background: 'rgba(0,0,0,0.45)',
+                padding: '5px 16px',
+                borderRadius: 999,
+                backdropFilter: 'blur(8px)',
+                zIndex: 11,
+              }}>
+                LOADING FRAMES • {loadProgress}%
+              </div>
+            )}
+          </div>
+
+          {/* Mobile: Next Section is rendered inside sticky wrapper directly below canvas */}
+          {isMobile && children}
 
         </div>
       </div>
-    </div>
+
+      {/* Desktop: Next Section is placed normally outside and after the 240vh Hero section */}
+      {!isMobile && children}
+    </>
   );
 }

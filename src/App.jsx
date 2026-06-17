@@ -137,19 +137,19 @@ const Ambot365 = () => {
       </nav>
 
       {/* Hero with scrolling 3D frame animation */}
-      <HeroSection onProgressChange={setHeroProgress} />
-
-      {/* Intro after the full-screen hero */}
-      <section style={{ padding: '5.5rem 3rem 5rem', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-        <div style={{ maxWidth: 820, margin: '0 auto', textAlign: 'center' }}>
-          <div style={{ fontFamily: 'Cinzel, serif', fontSize: '0.95rem', letterSpacing: '0.26em', color: '#6B8E78', marginBottom: '0.9rem' }}>
-            A PRIVATE COLLECTION
+      <HeroSection onProgressChange={setHeroProgress}>
+        {/* Intro after the full-screen hero */}
+        <section style={{ padding: '5.5rem 3rem 5rem', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ maxWidth: 820, margin: '0 auto', textAlign: 'center' }}>
+            <div style={{ fontFamily: 'Cinzel, serif', fontSize: '0.95rem', letterSpacing: '0.26em', color: '#6B8E78', marginBottom: '0.9rem' }}>
+              A PRIVATE COLLECTION
+            </div>
+            <p style={{ fontSize: '1.18rem', lineHeight: 1.5, color: 'rgba(255,255,255,0.82)' }}>
+              Each piece is documented in 240 frames — revealing material, joinery and silhouette from every angle as you scroll.
+            </p>
           </div>
-          <p style={{ fontSize: '1.18rem', lineHeight: 1.5, color: 'rgba(255,255,255,0.82)' }}>
-            Each piece is documented in 240 frames — revealing material, joinery and silhouette from every angle as you scroll.
-          </p>
-        </div>
-      </section>
+        </section>
+      </HeroSection>
 
       {/* Curated Living Spaces - redesigned to match reference */}
       <section id="spaces" style={{ padding: '4rem 2.5rem 7rem', background: '#050505' }}>
