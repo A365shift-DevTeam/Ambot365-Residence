@@ -244,11 +244,7 @@ const Ambot365 = () => {
             GALLERY
           </h2>
 
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-            gap: '1rem',
-          }}>
+          <div className="gallery-grid">
             {[
               '012', '048', '084', '120', '156', '192'
             ].map((frame, index) => (
