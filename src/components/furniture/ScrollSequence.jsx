@@ -1,12 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-
-const TOTAL_FRAMES = 240;
-const FRAME_BASE = '/furniture/frames/ezgif-frame-';
-
-function getFrameSrc(index) {
-  const num = String(index + 1).padStart(3, '0');
-  return `${FRAME_BASE}${num}.webp`;
-}
+import { TOTAL_FRAMES, getFrameSrcByIndex } from '../../utils/frames';
 
 export default function ScrollSequence({ onProgressChange, children }) {
   const canvasRef = useRef(null);
@@ -58,7 +51,7 @@ export default function ScrollSequence({ onProgressChange, children }) {
     for (let i = 0; i < TOTAL_FRAMES; i++) {
       const img = new Image();
       img.decoding = 'async';
-      img.src = getFrameSrc(i);
+      img.src = getFrameSrcByIndex(i);
       img.onload = () => {
         loaded++;
         checkDone();

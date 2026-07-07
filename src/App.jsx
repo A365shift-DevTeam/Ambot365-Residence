@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import Lenis from 'lenis';
 import HeroSection from './components/furniture/HeroSection';
+import { TOTAL_FRAMES, getFrameSrc } from './utils/frames';
 
 const Ambot365 = () => {
   useEffect(() => {
@@ -144,7 +145,7 @@ const Ambot365 = () => {
               A PRIVATE COLLECTION
             </div>
             <p style={{ fontSize: '1.18rem', lineHeight: 1.5, color: 'rgba(255,255,255,0.82)' }}>
-              Each piece is documented in 240 frames — revealing material, joinery and silhouette from every angle as you scroll.
+              Each piece is documented in {TOTAL_FRAMES} frames — revealing material, joinery and silhouette from every angle as you scroll.
             </p>
           </div>
         </section>
@@ -197,7 +198,7 @@ const Ambot365 = () => {
               >
                 <div style={{ height: 265, overflow: 'hidden', background: '#111' }}>
                   <img
-                    src={`/furniture/frames/ezgif-frame-${item.frame}.webp`}
+                    src={getFrameSrc(Number(item.frame))}
                     alt={item.title}
                     style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                   />
@@ -265,7 +266,7 @@ const Ambot365 = () => {
                 }}
               >
                 <img
-                  src={`/furniture/frames/ezgif-frame-${frame}.webp`}
+                  src={getFrameSrc(Number(frame))}
                   alt={`Gallery ${frame}`}
                   style={{
                     width: '100%',
@@ -301,7 +302,7 @@ const Ambot365 = () => {
         <div style={{
           position: 'absolute',
           inset: 0,
-          backgroundImage: `url('/furniture/frames/ezgif-frame-080.webp')`,
+          backgroundImage: `url('${getFrameSrc(80)}')`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           opacity: 0.18,
@@ -419,7 +420,7 @@ const Ambot365 = () => {
             }}
           >
             <img
-              src={`/furniture/frames/ezgif-frame-${selectedFrame}.webp`}
+              src={getFrameSrc(Number(selectedFrame))}
               alt={`Frame ${selectedFrame}`}
               style={{
                 maxWidth: '100%',
@@ -460,7 +461,7 @@ const Ambot365 = () => {
               letterSpacing: '0.25em',
               color: 'rgba(255,255,255,0.5)',
             }}>
-              FRAME {selectedFrame} &nbsp;•&nbsp; 240 TOTAL
+              FRAME {selectedFrame} &nbsp;•&nbsp; {TOTAL_FRAMES} TOTAL
             </div>
           </div>
         </div>
