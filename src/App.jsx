@@ -3,499 +3,227 @@ import Lenis from 'lenis';
 import { Menu, X } from 'lucide-react';
 import HeroSection from './components/furniture/HeroSection';
 import CraftsmanshipSection from './components/furniture/CraftsmanshipSection';
-import AmenitiesSection from './components/furniture/AmenitiesSection';
 import { TOTAL_FRAMES, getFrameSrc } from './utils/frames';
 
+const GALLERY_FRAMES = [48, 120, 156, 192];
+
 const Ambot365 = () => {
-  useEffect(() => {
-    const lenis = new Lenis({
-      duration: 1.45,
-      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-      direction: 'vertical',
-      smooth: true,
-      smoothTouch: false,
-    });
-
-    const raf = (t) => {
-      lenis.raf(t);
-      requestAnimationFrame(raf);
-    };
-    requestAnimationFrame(raf);
-
-    return () => lenis.destroy();
-  }, []);
-
-  // Gallery modal state
   const [selectedFrame, setSelectedFrame] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-
-  // Close modal on Escape key
-  useEffect(() => {
-    const handleKey = (e) => {
-      if (e.key === 'Escape') setSelectedFrame(null);
-    };
-    if (selectedFrame) {
-      window.addEventListener('keydown', handleKey);
-    }
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [selectedFrame]);
-
-  const openFrame = (frame) => setSelectedFrame(frame);
-  const closeModal = () => setSelectedFrame(null);
-
-  // Hero frame scrub progress (0 = first frame, 1 = last frame)
   const [heroProgress, setHeroProgress] = useState(0);
-  const [hideNav, setHideNav] = useState(true);
+  const [navSolid, setNavSolid] = useState(false);
 
   useEffect(() => {
-    const checkHeroVisibility = () => {
-      const heroEl = document.querySelector('.scroll-sequence');
-      if (!heroEl) {
-        setHideNav(false);
-        return;
-      }
+    const prefersReduced =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-      const rect = heroEl.getBoundingClientRect();
-      const viewportHeight = window.innerHeight;
-      const heroIsActive = rect.top <= 80 && rect.bottom > viewportHeight * 0.4;
-      const progressBased = heroProgress < 0.99;
+    if (prefersReduced) return undefined;
 
-      setHideNav(heroIsActive || progressBased);
+    const lenis = new Lenis({
+      duration: 1.35,
+      easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
+      smoothWheel: true,
+      touchMultiplier: 1.2,
+    });
+
+    let rafId = 0;
+    const raf = (time) => {
+      lenis.raf(time);
+      rafId = requestAnimationFrame(raf);
     };
-
-    checkHeroVisibility();
-
-    const onScroll = () => {
-      checkHeroVisibility();
-    };
-
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', checkHeroVisibility);
-
-    const progressTimer = setTimeout(checkHeroVisibility, 50);
+    rafId = requestAnimationFrame(raf);
 
     return () => {
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', checkHeroVisibility);
-      clearTimeout(progressTimer);
+      cancelAnimationFrame(rafId);
+      lenis.destroy();
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === 'Escape') {
+        setSelectedFrame(null);
+        setMobileMenuOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, []);
+
+  useEffect(() => {
+    if (mobileMenuOpen || selectedFrame) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [mobileMenuOpen, selectedFrame]);
+
+  useEffect(() => {
+    const updateNav = () => {
+      const heroEl = document.querySelector('.scroll-sequence');
+      if (!heroEl) {
+        setNavSolid(true);
+        return;
+      }
+      const rect = heroEl.getBoundingClientRect();
+      // Solid once the sequence is mostly past the viewport
+      const pastHero = rect.bottom < window.innerHeight * 0.55 || heroProgress > 0.92;
+      setNavSolid(pastHero);
+    };
+
+    updateNav();
+    window.addEventListener('scroll', updateNav, { passive: true });
+    window.addEventListener('resize', updateNav);
+    return () => {
+      window.removeEventListener('scroll', updateNav);
+      window.removeEventListener('resize', updateNav);
     };
   }, [heroProgress]);
 
+  const bookVisit = () => {
+    setMobileMenuOpen(false);
+    window.alert('Thank you — a private tour representative will contact you shortly.');
+  };
+
   return (
-    <div className="furniture-page min-h-screen" style={{ background: '#050505', color: 'rgba(255,255,255,0.9)' }}>
-      {/* Fixed Navigation */}
+    <div className="page">
       <nav
-        className="main-navbar"
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 100,
-          padding: '0.6rem 2.5rem',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          background: 'transparent',
-          backdropFilter: 'none',
-          WebkitBackdropFilter: 'none',
-          opacity: 1,
-          transform: 'translateY(0)',
-          pointerEvents: 'auto',
-          transition: 'all 0.25s ease',
-        }}
+        className={`main-navbar${navSolid ? ' is-solid' : ' is-hero'}`}
+        aria-label="Primary"
       >
-        <a href="#" className="main-navbar-logo" style={{ display: 'flex', alignItems: 'center' }}>
-          <img
-            src="/AmBot 365-Logo.png"
-            alt="AmBot 365"
-            style={{
-              height: '32px',
-              width: 'auto',
-              display: 'block',
-              filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.65))',
-            }}
-          />
+        <a href="#" className="main-navbar-logo" aria-label="AmBot 365 home">
+          <img src="/AmBot 365-Logo.png" alt="AmBot 365" />
         </a>
 
-        {/* Desktop Links */}
-        <div className="main-navbar-links" style={{ display: 'flex', gap: '2rem', fontSize: '0.68rem', letterSpacing: '0.18em', textTransform: 'uppercase', textShadow: '0 2px 8px rgba(0,0,0,0.65)' }}>
-          <a href="#craftsmanship">CRAFTSMANSHIP</a>
-          <a href="#amenities">AMENITIES</a>
-          <a href="#gallery">GALLERY</a>
+        <div className="main-navbar-links">
+          <a href="#craftsmanship">Craftsmanship</a>
+          <a href="#gallery">Gallery</a>
         </div>
 
-        {/* Desktop CTA */}
-        <button
-          className="main-navbar-cta"
-          style={{
-            background: 'rgba(255,255,255,0.95)',
-            color: '#111',
-            padding: '0.4rem 1.25rem',
-            fontSize: '0.65rem',
-            letterSpacing: '0.12em',
-            borderRadius: 2,
-            border: 'none',
-            cursor: 'pointer',
-            textTransform: 'uppercase',
-            transition: 'all 0.2s ease',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
-          }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = '#6B8E78')}
-          onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(255,255,255,0.95)')}
-        >
-          BOOK A VISIT
+        <button type="button" className="main-navbar-cta" onClick={bookVisit}>
+          Book a visit
         </button>
 
-        {/* Mobile Hamburger Button */}
         <button
+          type="button"
           className="mobile-menu-btn"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          aria-label="Toggle navigation menu"
-          style={{
-            background: 'rgba(0,0,0,0.5)',
-            color: '#fff',
-            border: '1px solid rgba(255,255,255,0.2)',
-            padding: '0.45rem',
-            borderRadius: 4,
-            cursor: 'pointer',
-            display: 'none',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
+          onClick={() => setMobileMenuOpen((open) => !open)}
+          aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+          aria-expanded={mobileMenuOpen}
         >
           {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
       </nav>
 
-      {/* Mobile Menu Drawer Overlay */}
       {mobileMenuOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 99,
-            background: 'rgba(5, 5, 5, 0.96)',
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center',
-            gap: '2.2rem',
-            padding: '2rem',
-          }}
-        >
-          <a
-            href="#craftsmanship"
-            onClick={() => setMobileMenuOpen(false)}
-            style={{
-              fontFamily: 'Cinzel, serif',
-              fontSize: '1.3rem',
-              letterSpacing: '0.18em',
-              color: '#fff',
-              textTransform: 'uppercase',
-            }}
-          >
-            CRAFTSMANSHIP
+        <div className="mobile-drawer" role="dialog" aria-modal="true" aria-label="Mobile menu">
+          <a href="#craftsmanship" onClick={() => setMobileMenuOpen(false)}>
+            Craftsmanship
           </a>
-          <a
-            href="#amenities"
-            onClick={() => setMobileMenuOpen(false)}
-            style={{
-              fontFamily: 'Cinzel, serif',
-              fontSize: '1.3rem',
-              letterSpacing: '0.18em',
-              color: '#fff',
-              textTransform: 'uppercase',
-            }}
-          >
-            AMENITIES
+          <a href="#gallery" onClick={() => setMobileMenuOpen(false)}>
+            Gallery
           </a>
-          <a
-            href="#gallery"
-            onClick={() => setMobileMenuOpen(false)}
-            style={{
-              fontFamily: 'Cinzel, serif',
-              fontSize: '1.3rem',
-              letterSpacing: '0.18em',
-              color: '#fff',
-              textTransform: 'uppercase',
-            }}
-          >
-            GALLERY
-          </a>
-          <button
-            onClick={() => {
-              setMobileMenuOpen(false);
-              alert('Thank you! A private tour representative will contact you shortly.');
-            }}
-            style={{
-              marginTop: '1.25rem',
-              background: '#fff',
-              color: '#050505',
-              padding: '0.8rem 2.2rem',
-              fontSize: '0.75rem',
-              letterSpacing: '0.14em',
-              borderRadius: 4,
-              border: 'none',
-              cursor: 'pointer',
-              textTransform: 'uppercase',
-              fontWeight: 500,
-            }}
-          >
-            BOOK A VISIT
+          <button type="button" className="btn btn-light" onClick={bookVisit}>
+            Book a visit
           </button>
         </div>
       )}
 
-      {/* Hero with scrolling 3D frame animation */}
       <HeroSection onProgressChange={setHeroProgress}>
-        <section style={{ padding: '1.5rem 1.5rem 2rem', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <div style={{ maxWidth: 820, margin: '0 auto', textAlign: 'center' }}>
-            <div style={{ fontFamily: 'Cinzel, serif', fontSize: '0.95rem', letterSpacing: '0.26em', color: '#6B8E78', marginBottom: '0.9rem' }}>
-              A PRIVATE COLLECTION
-            </div>
-            <p style={{ fontSize: '1.18rem', lineHeight: 1.5, color: 'rgba(255,255,255,0.82)' }}>
-              Each piece is documented in {TOTAL_FRAMES} frames — revealing material, joinery and silhouette from every angle as you scroll.
+        <section className="intro-strip">
+          <div className="intro-strip-inner">
+            <span className="eyebrow">A private collection</span>
+            <p>
+              Each residence is documented in {TOTAL_FRAMES} frames — material, joinery, and silhouette revealed as you scroll.
             </p>
           </div>
         </section>
 
-        {/* New Section 1: Craftsmanship & Materials */}
         <CraftsmanshipSection />
 
-        {/* New Section 2: Bespoke Amenities & Hospitality */}
-        <AmenitiesSection />
-
-        {/* Gallery */}
-        <section id="gallery" style={{ padding: '4.5rem 2.5rem 7rem', background: '#050505', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-          <div style={{ maxWidth: 1320, margin: '0 auto' }}>
-            <h2 style={{
-              fontFamily: 'Cinzel, serif',
-              fontSize: 'clamp(2.1rem, 5.2vw, 3.1rem)',
-              textAlign: 'center',
-              letterSpacing: '0.06em',
-              marginBottom: '3rem',
-              color: '#fff'
-            }}>
-              GALLERY
-            </h2>
+        <section id="gallery" className="section gallery-section">
+          <div className="section-inner">
+            <header className="section-header">
+              <span className="eyebrow">Captured sequence</span>
+              <h2 className="section-title">Gallery</h2>
+              <p className="section-lead">
+                Selected stills from the walkthrough — approach, threshold, and living space.
+              </p>
+            </header>
 
             <div className="gallery-grid">
-              {[
-                '012', '048', '084', '120', '156', '192'
-              ].map((frame, index) => (
-                <div
-                  key={index}
-                  onClick={() => openFrame(frame)}
-                  style={{
-                    position: 'relative',
-                    overflow: 'hidden',
-                    borderRadius: 6,
-                    border: '1px solid rgba(255,255,255,0.04)',
-                    cursor: 'pointer',
-                    background: '#0a0a0c',
-                    aspectRatio: index === 0 ? '16 / 10' : '4 / 3',
-                  }}
+              {GALLERY_FRAMES.map((frame) => (
+                <button
+                  key={frame}
+                  type="button"
+                  className="gallery-item"
+                  onClick={() => setSelectedFrame(frame)}
+                  aria-label={`Open gallery frame ${frame}`}
                 >
                   <img
-                    src={getFrameSrc(Number(frame))}
-                    alt={`Gallery ${frame}`}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover',
-                      display: 'block',
-                      transition: 'transform 0.6s ease, filter 0.3s ease',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'scale(1.04)';
-                      e.currentTarget.style.filter = 'brightness(1.07)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'scale(1)';
-                      e.currentTarget.style.filter = 'brightness(1)';
-                    }}
+                    src={getFrameSrc(frame)}
+                    alt={`Residence frame ${frame}`}
+                    loading="lazy"
                   />
-                </div>
+                  <span className="gallery-item-meta">
+                    Frame {String(frame).padStart(3, '0')}
+                  </span>
+                </button>
               ))}
             </div>
           </div>
         </section>
 
-        {/* Experience The Residence - CTA section */}
-        <section style={{
-          padding: '5.5rem 2rem 6rem',
-          background: '#050505',
-          borderTop: '1px solid rgba(255,255,255,0.06)',
-          position: 'relative',
-          overflow: 'hidden',
-        }}>
-          {/* Subtle background treatment */}
-          <div style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundImage: `url('${getFrameSrc(80)}')`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            opacity: 0.18,
-            filter: 'grayscale(0.3)',
-          }} />
-          <div style={{
-            position: 'absolute',
-            inset: 0,
-            background: 'linear-gradient(to bottom, rgba(5,5,5,0.75), rgba(5,5,5,0.92))',
-          }} />
+        <footer className="site-footer">
+          <div className="site-footer-inner">
+            <div className="site-footer-brand">
+              <img src="/AmBot 365-Logo.png" alt="AmBot 365" />
+              <p>Curated living spaces documented in interactive sequence.</p>
+            </div>
 
-          <div style={{
-            position: 'relative',
-            maxWidth: 820,
-            margin: '0 auto',
-            textAlign: 'center',
-            zIndex: 1,
-          }}>
-            <h2 style={{
-              fontFamily: 'Cinzel, serif',
-              fontSize: 'clamp(2rem, 5.5vw, 3.05rem)',
-              color: '#fff',
-              letterSpacing: '0.03em',
-              marginBottom: '1rem',
-              lineHeight: 1.05,
-            }}>
-              EXPERIENCE THE RESIDENCE
-            </h2>
-            <p style={{
-              color: 'rgba(255,255,255,0.75)',
-              fontSize: '1.02rem',
-              marginBottom: '2.2rem',
-              letterSpacing: '0.01em',
-            }}>
-              Schedule your private tour today.
-            </p>
-
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-              <button
-                onClick={() => alert('Thank you! A private tour representative will contact you shortly.')}
-                style={{
-                  background: '#fff',
-                  color: '#050505',
-                  padding: '0.85rem 2.1rem',
-                  fontSize: '0.78rem',
-                  letterSpacing: '0.12em',
-                  borderRadius: 4,
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontWeight: 500,
-                  transition: 'all 0.2s ease',
-                }}
-                onMouseEnter={e => e.currentTarget.style.background = '#6B8E78'}
-                onMouseLeave={e => e.currentTarget.style.background = '#fff'}
-              >
-                BOOK A TOUR
+            <nav className="site-footer-nav" aria-label="Footer">
+              <a href="#craftsmanship">Craftsmanship</a>
+              <a href="#gallery">Gallery</a>
+              <button type="button" className="site-footer-link-btn" onClick={bookVisit}>
+                Book a visit
               </button>
+            </nav>
 
-              <button
-                onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })}
-                style={{
-                  background: 'transparent',
-                  color: '#fff',
-                  padding: '0.85rem 2.1rem',
-                  fontSize: '0.78rem',
-                  letterSpacing: '0.12em',
-                  borderRadius: 4,
-                  border: '1px solid rgba(255,255,255,0.65)',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
-                  e.currentTarget.style.borderColor = '#fff';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.background = 'transparent';
-                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.65)';
-                }}
-              >
-                VIEW FLOOR PLANS
-              </button>
+            <div className="site-footer-meta">
+              <span>© AmBot 365 — {new Date().getFullYear()}</span>
+              <span>Curated living</span>
             </div>
           </div>
-        </section>
-
-        <footer style={{ padding: '3.25rem 3.5rem', textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.06)', fontSize: '0.75rem', letterSpacing: '0.12em', color: 'rgba(255,255,255,0.4)' }}>
-          © AMBOT365 — {new Date().getFullYear()} &nbsp;•&nbsp; CURATED LIVING
         </footer>
-
       </HeroSection>
 
-      {/* Gallery Image Modal */}
-      {selectedFrame && (
+      {selectedFrame != null && (
         <div
-          onClick={closeModal}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.92)',
-            zIndex: 200,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '2rem',
-            cursor: 'zoom-out',
-          }}
+          className="gallery-modal"
+          onClick={() => setSelectedFrame(null)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Gallery image"
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              position: 'relative',
-              maxWidth: '92vw',
-              maxHeight: '88vh',
-            }}
-          >
+          <div className="gallery-modal-panel" onClick={(e) => e.stopPropagation()}>
             <img
-              src={getFrameSrc(Number(selectedFrame))}
+              src={getFrameSrc(selectedFrame)}
               alt={`Frame ${selectedFrame}`}
-              style={{
-                maxWidth: '100%',
-                maxHeight: '88vh',
-                objectFit: 'contain',
-                borderRadius: 2,
-                boxShadow: '0 30px 80px -10px rgba(0,0,0,0.8)',
-              }}
             />
-
             <button
-              onClick={closeModal}
-              style={{
-                position: 'absolute',
-                top: -12,
-                right: -12,
-                width: 42,
-                height: 42,
-                borderRadius: '999px',
-                background: '#111',
-                color: '#fff',
-                border: '1px solid rgba(255,255,255,0.15)',
-                fontSize: 22,
-                lineHeight: 1,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
+              type="button"
+              className="gallery-modal-close"
+              onClick={() => setSelectedFrame(null)}
+              aria-label="Close"
             >
               ×
             </button>
-
-            <div style={{
-              marginTop: '1rem',
-              textAlign: 'center',
-              fontSize: '12px',
-              letterSpacing: '0.25em',
-              color: 'rgba(255,255,255,0.5)',
-            }}>
-              FRAME {selectedFrame} &nbsp;•&nbsp; {TOTAL_FRAMES} TOTAL
+            <div className="gallery-modal-caption">
+              Frame {String(selectedFrame).padStart(3, '0')} · {TOTAL_FRAMES} total
             </div>
           </div>
         </div>

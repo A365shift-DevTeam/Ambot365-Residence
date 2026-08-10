@@ -12,8 +12,9 @@ export default function ScrollSequence({ onProgressChange, children }) {
   const [ready, setReady] = useState(false);
   const [loadProgress, setLoadProgress] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
-  const [imgAspect, setImgAspect] = useState(1.6); // Default fallback 16:10
+  const [imgAspect, setImgAspect] = useState(1.6);
   const [mobileScrollTrack, setMobileScrollTrack] = useState(0);
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -25,7 +26,7 @@ export default function ScrollSequence({ onProgressChange, children }) {
   useEffect(() => {
     if (isMobile && stickyWrapperRef.current) {
       const observer = new ResizeObserver((entries) => {
-        for (let entry of entries) {
+        for (const entry of entries) {
           setMobileScrollTrack(entry.contentRect.height);
         }
       });
@@ -34,17 +35,16 @@ export default function ScrollSequence({ onProgressChange, children }) {
     }
   }, [isMobile]);
 
-  const drawFrame = useCallback((frameIndex, imgsOverride) => {
+  const drawFrame = useCallback((frameIndexValue, imgsOverride) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const imgs = imgsOverride || imagesRef.current;
     if (!imgs || imgs.length === 0) return;
 
-    let idx = Math.max(0, Math.min(TOTAL_FRAMES - 1, Math.floor(frameIndex)));
+    let idx = Math.max(0, Math.min(TOTAL_FRAMES - 1, Math.floor(frameIndexValue)));
     let img = imgs[idx];
 
-    // Find nearest loaded frame if exact not ready yet
     if (!img || !img.complete || !img.naturalWidth) {
       let found = false;
       for (let offset = 0; offset < TOTAL_FRAMES; offset++) {
@@ -63,7 +63,6 @@ export default function ScrollSequence({ onProgressChange, children }) {
     const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
     if (!ctx) return;
 
-    // Set canvas internal resolution to the image's native size (high quality)
     if (canvas.width !== img.naturalWidth || canvas.height !== img.naturalHeight) {
       canvas.width = img.naturalWidth;
       canvas.height = img.naturalHeight;
@@ -72,12 +71,13 @@ export default function ScrollSequence({ onProgressChange, children }) {
     ctx.drawImage(img, 0, 0);
     currentFrameRef.current = idx;
 
+    const nextProgress = idx / (TOTAL_FRAMES - 1);
+    setProgress(nextProgress);
     if (onProgressChange) {
-      onProgressChange(idx / (TOTAL_FRAMES - 1));
+      onProgressChange(nextProgress);
     }
   }, [onProgressChange]);
 
-  // Preload all frames with prioritized loading for initial frames
   useEffect(() => {
     const imgs = new Array(TOTAL_FRAMES);
     let loaded = 0;
@@ -106,17 +106,11 @@ export default function ScrollSequence({ onProgressChange, children }) {
     for (let i = 0; i < TOTAL_FRAMES; i++) {
       const img = new Image();
       img.decoding = 'async';
-      if (i < 8) {
-        img.fetchPriority = 'high';
-      } else {
-        img.fetchPriority = 'low';
-      }
+      img.fetchPriority = i < 8 ? 'high' : 'low';
       img.src = getFrameSrcByIndex(i);
       img.onload = () => {
         loaded++;
-        if (i === 0) {
-          drawFirstFrame(img);
-        }
+        if (i === 0) drawFirstFrame(img);
         checkDone();
       };
       img.onerror = () => {
@@ -129,11 +123,15 @@ export default function ScrollSequence({ onProgressChange, children }) {
     imagesRef.current = imgs;
 
     return () => {
-      imgs.forEach(img => { if (img) { img.onload = null; img.onerror = null; } });
+      imgs.forEach((img) => {
+        if (img) {
+          img.onload = null;
+          img.onerror = null;
+        }
+      });
     };
   }, []);
 
-  // Scroll-driven frame update
   useEffect(() => {
     const scrollContainer = containerRef.current;
     if (!scrollContainer) return;
@@ -144,37 +142,26 @@ export default function ScrollSequence({ onProgressChange, children }) {
     const updateFrame = () => {
       const rect = scrollContainer.getBoundingClientRect();
       const viewportHeight = window.innerHeight;
-      
-      let progress = 0;
+      let next = 0;
 
       if (isMobile) {
-        // Mobile Animation Logic: animate exactly over the 300vh scroll track
-        const scrollDistance = viewportHeight * 3; // 300vh
+        const scrollDistance = viewportHeight * 3;
         const scrolledPast = -rect.top;
-        if (scrolledPast < 0) {
-          progress = 0;
-        } else if (scrolledPast > scrollDistance) {
-          progress = 1;
-        } else {
-          progress = scrolledPast / scrollDistance;
-        }
+        if (scrolledPast < 0) next = 0;
+        else if (scrolledPast > scrollDistance) next = 1;
+        else next = scrolledPast / scrollDistance;
       } else {
-        // Desktop Animation Logic: animate over the height of the container minus the sticky element
-        const stickyWrapperHeight = stickyWrapperRef.current ? stickyWrapperRef.current.clientHeight : viewportHeight;
+        const stickyWrapperHeight = stickyWrapperRef.current
+          ? stickyWrapperRef.current.clientHeight
+          : viewportHeight;
         const scrollDistance = rect.height - stickyWrapperHeight;
         const scrolledPast = -rect.top;
-        if (scrolledPast < 0) {
-          progress = 0;
-        } else if (scrollDistance > 0) {
-          progress = Math.min(1, Math.max(0, scrolledPast / scrollDistance));
-        } else {
-          progress = 1;
-        }
+        if (scrolledPast < 0) next = 0;
+        else if (scrollDistance > 0) next = Math.min(1, Math.max(0, scrolledPast / scrollDistance));
+        else next = 1;
       }
 
-      const targetFrame = progress * (TOTAL_FRAMES - 1);
-
-      // Only redraw if frame actually changed (saves perf)
+      const targetFrame = next * (TOTAL_FRAMES - 1);
       const newFrame = Math.floor(targetFrame);
       if (newFrame !== lastFrame) {
         lastFrame = newFrame;
@@ -191,9 +178,7 @@ export default function ScrollSequence({ onProgressChange, children }) {
       }
     };
 
-    // Initial paint
     requestAnimationFrame(updateFrame);
-
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onScroll);
 
@@ -203,7 +188,6 @@ export default function ScrollSequence({ onProgressChange, children }) {
     };
   }, [drawFrame, isMobile]);
 
-  // Also allow clicking / dragging on canvas to manually scrub (nice for demo)
   const handlePointerScrub = (e) => {
     const scrollContainer = containerRef.current;
     if (!scrollContainer) return;
@@ -211,114 +195,64 @@ export default function ScrollSequence({ onProgressChange, children }) {
     const rect = scrollContainer.getBoundingClientRect();
     const viewportH = window.innerHeight;
     const y = e.clientY - rect.top;
-    const progress = Math.max(0, Math.min(1, y / viewportH));
-
-    const frame = progress * (TOTAL_FRAMES - 1);
+    const scrubProgress = Math.max(0, Math.min(1, y / viewportH));
+    const frame = scrubProgress * (TOTAL_FRAMES - 1);
     drawFrame(frame);
 
     const totalScrub = scrollContainer.offsetHeight - viewportH;
-    const targetScroll = scrollContainer.offsetTop + (progress * totalScrub);
+    const targetScroll = scrollContainer.offsetTop + scrubProgress * totalScrub;
     window.scrollTo({ top: targetScroll, behavior: 'auto' });
   };
 
+  const veilOpacity = Math.max(0.35, 1 - progress * 0.55);
+
   return (
     <>
-      <div 
-        ref={containerRef} 
-        className="scroll-sequence" 
-        style={{ 
-          height: isMobile ? `calc(300vh + ${mobileScrollTrack}px)` : '240vh', 
-          position: 'relative' 
+      <div
+        ref={containerRef}
+        className="scroll-sequence"
+        style={{
+          height: isMobile ? `calc(300vh + ${mobileScrollTrack}px)` : '240vh',
         }}
       >
         <div
           ref={stickyWrapperRef}
+          className="scroll-sticky"
           style={{
-            position: 'sticky',
-            top: 0,
             height: isMobile ? 'max-content' : '100dvh',
-            background: '#050505',
             overflow: isMobile ? 'visible' : 'hidden',
-            display: 'flex',
-            flexDirection: 'column'
           }}
         >
-          {/* Canvas Wrapper */}
-          <div style={{ 
-            position: isMobile ? 'relative' : 'absolute', 
-            width: '100%', 
-            height: isMobile ? `calc(100vw / ${imgAspect})` : '100%', 
-            inset: isMobile ? 'auto' : 0 
-          }}>
-            {/* Canvas - the 3D furniture frames */}
+          <div
+            className="canvas-stage"
+            style={{
+              position: isMobile ? 'relative' : 'absolute',
+              height: isMobile ? `calc(100vw / ${imgAspect})` : '100%',
+              inset: isMobile ? 'auto' : 0,
+            }}
+          >
             <canvas
               ref={canvasRef}
               onPointerDown={handlePointerScrub}
               onPointerMove={(e) => {
                 if (e.buttons > 0) handlePointerScrub(e);
               }}
-              style={{
-                position: 'absolute',
-                inset: 0,
-                width: '100%',
-                height: '100%',
-                display: 'block',
-                background: '#0a0a0c',
-                cursor: 'grab',
-                touchAction: 'none',
-                zIndex: 1,
-                objectFit: 'cover'
-              }}
+              aria-label="Interactive residence walkthrough — scroll or drag to explore frames"
             />
 
-            {/* Very subtle full-bleed backdrop for depth */}
-            <div style={{
-              position: 'absolute',
-              inset: 0,
-              background: 'radial-gradient(ellipse at 50% 45%, rgba(255,255,255,0.012) 0%, transparent 60%)',
-              pointerEvents: 'none',
-              zIndex: 2,
-            }} />
+            <div className="canvas-veil" style={{ opacity: veilOpacity }} />
 
-            {/* Subtle vignette for premium photo-like treatment (text readability) */}
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                background: 'radial-gradient(circle at 50% 38%, transparent 48%, rgba(5,5,5,0.28) 76%)',
-                pointerEvents: 'none',
-                zIndex: 3,
-              }}
-            />
-
-            {/* Loading indicator (only while preloading) */}
             {!ready && loadProgress < 100 && (
-              <div style={{
-                position: 'absolute',
-                bottom: '9%',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                fontSize: '10px',
-                letterSpacing: '3.5px',
-                color: 'rgba(255,255,255,0.5)',
-                background: 'rgba(0,0,0,0.45)',
-                padding: '5px 16px',
-                borderRadius: 999,
-                backdropFilter: 'blur(8px)',
-                zIndex: 11,
-              }}>
-                LOADING FRAMES • {loadProgress}%
+              <div className="loading-pill" role="status" aria-live="polite">
+                Loading frames · {loadProgress}%
               </div>
             )}
           </div>
 
-          {/* Mobile: Next Section is rendered inside sticky wrapper directly below canvas */}
           {isMobile && children}
-
         </div>
       </div>
 
-      {/* Desktop: Next Section is placed normally outside and after the 240vh Hero section */}
       {!isMobile && children}
     </>
   );
