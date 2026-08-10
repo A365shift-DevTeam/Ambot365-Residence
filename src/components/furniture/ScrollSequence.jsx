@@ -16,6 +16,13 @@ export default function ScrollSequence({ onProgressChange, children }) {
   const [mobileScrollTrack, setMobileScrollTrack] = useState(0);
 
   useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
     if (isMobile && stickyWrapperRef.current) {
       const observer = new ResizeObserver((entries) => {
         for (let entry of entries) {
@@ -26,76 +33,6 @@ export default function ScrollSequence({ onProgressChange, children }) {
       return () => observer.disconnect();
     }
   }, [isMobile]);
-
-  useEffect(() => {
-    const handleResize = () => setIsMobile(window.innerWidth <= 768);
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Preload all frames
-  useEffect(() => {
-    const imgs = new Array(TOTAL_FRAMES);
-    let loaded = 0;
-
-    const checkDone = () => {
-      loadedCountRef.current = loaded;
-      const pct = Math.round((loaded / TOTAL_FRAMES) * 100);
-      setLoadProgress(pct);
-      if (loaded === TOTAL_FRAMES) {
-        setReady(true);
-      }
-    };
-
-    for (let i = 0; i < TOTAL_FRAMES; i++) {
-      const img = new Image();
-      img.decoding = 'async';
-      img.src = getFrameSrcByIndex(i);
-      img.onload = () => {
-        loaded++;
-        checkDone();
-      };
-      img.onerror = () => {
-        // Still count to avoid blocking forever
-        loaded++;
-        checkDone();
-      };
-      imgs[i] = img;
-    }
-
-    imagesRef.current = imgs;
-
-    // Draw first frame as soon as it is ready
-    const first = imgs[0];
-    if (first) {
-      const tryDrawFirst = () => {
-        const canvas = canvasRef.current;
-        if (!canvas || !first.complete || !first.naturalWidth) {
-          setTimeout(tryDrawFirst, 60);
-          return;
-        }
-        
-        // Calculate aspect ratio dynamically
-        setImgAspect(first.naturalWidth / first.naturalHeight);
-        
-        // Use native image resolution internally (high quality)
-        canvas.width = first.naturalWidth;
-        canvas.height = first.naturalHeight;
-
-        const ctx = canvas.getContext('2d', { alpha: true });
-        if (ctx) {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(first, 0, 0);
-        }
-      };
-      tryDrawFirst();
-    }
-
-    return () => {
-      imgs.forEach(img => { img.onload = null; img.onerror = null; });
-    };
-  }, []);
 
   const drawFrame = useCallback((frameIndex, imgsOverride) => {
     const canvas = canvasRef.current;
@@ -123,7 +60,7 @@ export default function ScrollSequence({ onProgressChange, children }) {
       if (!found) return;
     }
 
-    const ctx = canvas.getContext('2d', { alpha: true, desynchronized: true });
+    const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
     if (!ctx) return;
 
     // Set canvas internal resolution to the image's native size (high quality)
@@ -132,16 +69,69 @@ export default function ScrollSequence({ onProgressChange, children }) {
       canvas.height = img.naturalHeight;
     }
 
-    // Direct draw, full-frame layout handled by object-fit CSS now
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0);
-
     currentFrameRef.current = idx;
 
     if (onProgressChange) {
       onProgressChange(idx / (TOTAL_FRAMES - 1));
     }
   }, [onProgressChange]);
+
+  // Preload all frames with prioritized loading for initial frames
+  useEffect(() => {
+    const imgs = new Array(TOTAL_FRAMES);
+    let loaded = 0;
+
+    const checkDone = () => {
+      loadedCountRef.current = loaded;
+      const pct = Math.round((loaded / TOTAL_FRAMES) * 100);
+      setLoadProgress(pct);
+      if (loaded === TOTAL_FRAMES) {
+        setReady(true);
+      }
+    };
+
+    const drawFirstFrame = (firstImg) => {
+      const canvas = canvasRef.current;
+      if (!canvas || !firstImg.naturalWidth) return;
+      setImgAspect(firstImg.naturalWidth / firstImg.naturalHeight);
+      canvas.width = firstImg.naturalWidth;
+      canvas.height = firstImg.naturalHeight;
+      const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+      if (ctx) {
+        ctx.drawImage(firstImg, 0, 0);
+      }
+    };
+
+    for (let i = 0; i < TOTAL_FRAMES; i++) {
+      const img = new Image();
+      img.decoding = 'async';
+      if (i < 8) {
+        img.fetchPriority = 'high';
+      } else {
+        img.fetchPriority = 'low';
+      }
+      img.src = getFrameSrcByIndex(i);
+      img.onload = () => {
+        loaded++;
+        if (i === 0) {
+          drawFirstFrame(img);
+        }
+        checkDone();
+      };
+      img.onerror = () => {
+        loaded++;
+        checkDone();
+      };
+      imgs[i] = img;
+    }
+
+    imagesRef.current = imgs;
+
+    return () => {
+      imgs.forEach(img => { if (img) { img.onload = null; img.onerror = null; } });
+    };
+  }, []);
 
   // Scroll-driven frame update
   useEffect(() => {
@@ -226,7 +216,6 @@ export default function ScrollSequence({ onProgressChange, children }) {
     const frame = progress * (TOTAL_FRAMES - 1);
     drawFrame(frame);
 
-    // Optional: also scroll the page to match (sync)
     const totalScrub = scrollContainer.offsetHeight - viewportH;
     const targetScroll = scrollContainer.offsetTop + (progress * totalScrub);
     window.scrollTo({ top: targetScroll, behavior: 'auto' });
@@ -278,7 +267,7 @@ export default function ScrollSequence({ onProgressChange, children }) {
                 cursor: 'grab',
                 touchAction: 'none',
                 zIndex: 1,
-                objectFit: 'cover' // ensures full bleed on desktop, perfectly contained on mobile matching aspect
+                objectFit: 'cover'
               }}
             />
 
