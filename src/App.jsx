@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Lenis from 'lenis';
+import { Menu, X } from 'lucide-react';
 import HeroSection from './components/furniture/HeroSection';
 import CraftsmanshipSection from './components/furniture/CraftsmanshipSection';
 import AmenitiesSection from './components/furniture/AmenitiesSection';
@@ -26,6 +27,7 @@ const Ambot365 = () => {
 
   // Gallery modal state
   const [selectedFrame, setSelectedFrame] = useState(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Close modal on Escape key
   useEffect(() => {
@@ -81,7 +83,7 @@ const Ambot365 = () => {
 
   return (
     <div className="furniture-page min-h-screen" style={{ background: '#050505', color: 'rgba(255,255,255,0.9)' }}>
-      {/* Fixed Navigation - Completely Transparent & Compact (No Frame Interruption) */}
+      {/* Fixed Navigation */}
       <nav
         className="main-navbar"
         style={{
@@ -103,14 +105,27 @@ const Ambot365 = () => {
           transition: 'all 0.25s ease',
         }}
       >
-        <div className="main-navbar-logo" style={{ fontFamily: 'Cinzel, serif', fontSize: '1.15rem', letterSpacing: '0.14em', textShadow: '0 2px 8px rgba(0,0,0,0.65)' }}>Ambot365</div>
+        <a href="#" className="main-navbar-logo" style={{ display: 'flex', alignItems: 'center' }}>
+          <img
+            src="/AmBot 365-Logo.png"
+            alt="AmBot 365"
+            style={{
+              height: '32px',
+              width: 'auto',
+              display: 'block',
+              filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.65))',
+            }}
+          />
+        </a>
 
+        {/* Desktop Links */}
         <div className="main-navbar-links" style={{ display: 'flex', gap: '2rem', fontSize: '0.68rem', letterSpacing: '0.18em', textTransform: 'uppercase', textShadow: '0 2px 8px rgba(0,0,0,0.65)' }}>
           <a href="#craftsmanship">CRAFTSMANSHIP</a>
           <a href="#amenities">AMENITIES</a>
           <a href="#gallery">GALLERY</a>
         </div>
 
+        {/* Desktop CTA */}
         <button
           className="main-navbar-cta"
           style={{
@@ -131,7 +146,108 @@ const Ambot365 = () => {
         >
           BOOK A VISIT
         </button>
+
+        {/* Mobile Hamburger Button */}
+        <button
+          className="mobile-menu-btn"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          aria-label="Toggle navigation menu"
+          style={{
+            background: 'rgba(0,0,0,0.5)',
+            color: '#fff',
+            border: '1px solid rgba(255,255,255,0.2)',
+            padding: '0.45rem',
+            borderRadius: 4,
+            cursor: 'pointer',
+            display: 'none',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
       </nav>
+
+      {/* Mobile Menu Drawer Overlay */}
+      {mobileMenuOpen && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99,
+            background: 'rgba(5, 5, 5, 0.96)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: '2.2rem',
+            padding: '2rem',
+          }}
+        >
+          <a
+            href="#craftsmanship"
+            onClick={() => setMobileMenuOpen(false)}
+            style={{
+              fontFamily: 'Cinzel, serif',
+              fontSize: '1.3rem',
+              letterSpacing: '0.18em',
+              color: '#fff',
+              textTransform: 'uppercase',
+            }}
+          >
+            CRAFTSMANSHIP
+          </a>
+          <a
+            href="#amenities"
+            onClick={() => setMobileMenuOpen(false)}
+            style={{
+              fontFamily: 'Cinzel, serif',
+              fontSize: '1.3rem',
+              letterSpacing: '0.18em',
+              color: '#fff',
+              textTransform: 'uppercase',
+            }}
+          >
+            AMENITIES
+          </a>
+          <a
+            href="#gallery"
+            onClick={() => setMobileMenuOpen(false)}
+            style={{
+              fontFamily: 'Cinzel, serif',
+              fontSize: '1.3rem',
+              letterSpacing: '0.18em',
+              color: '#fff',
+              textTransform: 'uppercase',
+            }}
+          >
+            GALLERY
+          </a>
+          <button
+            onClick={() => {
+              setMobileMenuOpen(false);
+              alert('Thank you! A private tour representative will contact you shortly.');
+            }}
+            style={{
+              marginTop: '1.25rem',
+              background: '#fff',
+              color: '#050505',
+              padding: '0.8rem 2.2rem',
+              fontSize: '0.75rem',
+              letterSpacing: '0.14em',
+              borderRadius: 4,
+              border: 'none',
+              cursor: 'pointer',
+              textTransform: 'uppercase',
+              fontWeight: 500,
+            }}
+          >
+            BOOK A VISIT
+          </button>
+        </div>
+      )}
 
       {/* Hero with scrolling 3D frame animation */}
       <HeroSection onProgressChange={setHeroProgress}>

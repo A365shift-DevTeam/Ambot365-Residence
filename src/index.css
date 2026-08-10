@@ -88,25 +88,19 @@ button {
 
 @media (max-width: 768px) {
   .main-navbar {
-    padding: 0.45rem 0.85rem !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
+    padding: 0.6rem 1.25rem !important;
   }
 
-  .main-navbar-logo {
-    font-size: 0.95rem !important;
-    letter-spacing: 0.1em !important;
+  .main-navbar-logo img {
+    height: 26px !important;
   }
 
-  .main-navbar-links {
-    gap: 0.75rem !important;
-    font-size: 0.58rem !important;
-    letter-spacing: 0.1em !important;
-  }
-
+  .main-navbar-links,
   .main-navbar-cta {
-    padding: 0.35rem 0.75rem !important;
-    font-size: 0.58rem !important;
-    letter-spacing: 0.08em !important;
+    display: none !important;
+  }
+
+  .mobile-menu-btn {
+    display: flex !important;
   }
 }
